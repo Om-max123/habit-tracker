@@ -1,5 +1,3 @@
-# ANTIGRAVITY—3D Interactive Portfolio
-
 A brutalist/neo-brutalist digital portfolio showcasing hyper-interactive web experiences through immersive 3D rendering, reactive audio systems, and innovative geometric visualization.
 
 ![Demo Screenshot](data:image/png;base64,example_base64_data_here)
