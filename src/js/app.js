@@ -3,6 +3,7 @@
  */
 
 import { store } from './store.js';
+import { syncEngine } from './syncEngine.js';
 import { renderMonthlyView } from './monthlyView.js';
 import { renderWeeklyView } from './weeklyView.js';
 import { renderYearlyView } from './yearlyView.js';
@@ -12,6 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const appContainer = document.getElementById('appViewContainer');
   const navTabs = document.querySelectorAll('.nav-tab');
   const themeToggleBtn = document.getElementById('themeToggleBtn');
+  const syncStatusText = document.getElementById('syncStatusText');
 
   // Initialize theme
   document.documentElement.setAttribute('data-theme', store.state.theme || 'dark');
@@ -19,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Tab switching handler
   function switchTab(tabName) {
     store.state.activeTab = tabName;
-    store.saveState();
+    store.saveState(false);
 
     navTabs.forEach(tab => {
       if (tab.getAttribute('data-tab') === tabName) {
@@ -44,6 +46,27 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // Listen for Cloud Sync status changes
+  syncEngine.onSync((status) => {
+    if (syncStatusText) {
+      if (status === 'syncing') {
+        syncStatusText.textContent = 'Syncing...';
+        syncStatusText.style.color = 'var(--accent-amber)';
+      } else if (status === 'synced') {
+        syncStatusText.textContent = 'Synced';
+        syncStatusText.style.color = 'var(--accent-green)';
+      } else if (status === 'error') {
+        syncStatusText.textContent = 'Offline';
+        syncStatusText.style.color = 'var(--text-muted)';
+      }
+    }
+  });
+
+  // Listen for remote cloud updates pushed from phone/laptop to re-render active view
+  window.addEventListener('magicloom-cloud-synced', () => {
+    switchTab(store.state.activeTab || 'monthly');
+  });
+
   // Theme Toggle Listener
   if (themeToggleBtn) {
     themeToggleBtn.addEventListener('click', () => {
@@ -51,7 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const newTheme = currentTheme === 'light' ? 'dark' : 'light';
       document.documentElement.setAttribute('data-theme', newTheme);
       store.state.theme = newTheme;
-      store.saveState();
+      store.saveState(false);
     });
   }
 

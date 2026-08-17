@@ -1,17 +1,19 @@
 /**
- * MagicLoom Habit Tracker - Habit Manager & Backup Component
+ * MagicLoom Habit Tracker - Habit Manager & Cloud Sync Component
  */
 
 import { store } from './store.js';
+import { syncEngine } from './syncEngine.js';
 
 export function renderManagerView(container) {
   const habits = store.state.habits;
+  const currentSyncCode = syncEngine.getSyncCode();
 
   container.innerHTML = `
     <div class="toolbar-card">
       <div class="toolbar-title-group">
         <h2 style="font-family: var(--font-heading); font-weight: 800; font-size: 1.3rem;">
-          Habit Manager & Backup Settings
+          Habit Manager & Cloud Sync Settings
         </h2>
       </div>
     </div>
@@ -58,6 +60,26 @@ export function renderManagerView(container) {
 
         <hr style="border: none; border-top: 1px solid var(--border-color); margin: 1rem 0;">
 
+        <!-- Cross-Device Cloud Sync Pair Form -->
+        <div class="panel-title" style="font-size: 0.95rem; color: var(--accent-green);">
+          <span>☁️ Cross-Device Cloud Sync</span>
+        </div>
+        <p style="font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 0.5rem;">
+          Enter the same Personal Sync Code on your laptop and phone to link them in real-time.
+        </p>
+
+        <form id="syncCodeForm">
+          <div class="form-group">
+            <label class="form-label">Personal Sync Code</label>
+            <input type="text" id="syncCodeInput" class="form-control" value="${currentSyncCode}" required style="font-family: var(--font-mono); font-weight: 700; color: var(--accent-green);">
+          </div>
+          <button type="submit" class="btn btn-secondary" style="width: 100%; color: var(--accent-green); border-color: var(--accent-green);">
+            🔄 Pair & Sync Device
+          </button>
+        </form>
+
+        <hr style="border: none; border-top: 1px solid var(--border-color); margin: 1rem 0;">
+
         <!-- Backup & Lifetime Data -->
         <div class="panel-title" style="font-size: 0.95rem;">
           <span>Data Preservation & Presets</span>
@@ -83,38 +105,58 @@ export function renderManagerView(container) {
 
       </div>
 
-      <!-- Current Habits Table -->
-      <div class="spreadsheet-container" style="padding: 1.25rem;">
-        <div class="panel-title" style="margin-bottom: 1rem;">
-          <span>Current Active Habits (${habits.length})</span>
+      <!-- Current Habits Table & PWA Download Instructions -->
+      <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+        
+        <!-- PWA Download App Instruction Banner -->
+        <div class="weekly-header-banner" style="background: var(--bg-surface);">
+          <div style="display: flex; align-items: center; gap: 1rem;">
+            <div style="font-size: 2rem;">📱</div>
+            <div>
+              <h3 style="font-family: var(--font-heading); font-weight: 700; font-size: 1.1rem; color: var(--text-primary);">
+                Download & Install App on Phone & Laptop
+              </h3>
+              <p style="color: var(--text-secondary); font-size: 0.82rem; margin-top: 0.2rem;">
+                <strong>iPhone (iOS):</strong> Tap Share button in Safari → Select <em>"Add to Home Screen"</em>.<br>
+                <strong>Android / Laptop:</strong> Click <em>"📱 Install App"</em> button in header or browser menu → <em>"Install Application"</em>.
+              </p>
+            </div>
+          </div>
         </div>
 
-        <table class="habit-manage-table">
-          <thead>
-            <tr>
-              <th style="width: 50px;">Icon</th>
-              <th>Habit Title</th>
-              <th>Category</th>
-              <th>Monthly Goal</th>
-              <th style="width: 80px;">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${habits.map(h => `
+        <!-- Habits Table -->
+        <div class="spreadsheet-container" style="padding: 1.25rem;">
+          <div class="panel-title" style="margin-bottom: 1rem;">
+            <span>Current Active Habits (${habits.length})</span>
+          </div>
+
+          <table class="habit-manage-table">
+            <thead>
               <tr>
-                <td style="text-align: center; font-size: 1.2rem;">${h.icon || '📌'}</td>
-                <td style="font-weight: 600;">${h.title}</td>
-                <td><span class="month-card-pct-badge" style="background: var(--bg-input); color: var(--text-secondary);">${h.category || 'General'}</span></td>
-                <td style="font-family: var(--font-mono);">${h.goalMonthly || 30} Days</td>
-                <td style="text-align: center;">
-                  <button class="btn btn-icon delete-habit-btn" data-id="${h.id}" title="Delete Habit" style="color: var(--accent-red);">
-                    🗑️
-                  </button>
-                </td>
+                <th style="width: 50px;">Icon</th>
+                <th>Habit Title</th>
+                <th>Category</th>
+                <th>Monthly Goal</th>
+                <th style="width: 80px;">Action</th>
               </tr>
-            `).join('')}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              ${habits.map(h => `
+                <tr>
+                  <td style="text-align: center; font-size: 1.2rem;">${h.icon || '📌'}</td>
+                  <td style="font-weight: 600;">${h.title}</td>
+                  <td><span class="month-card-pct-badge" style="background: var(--bg-input); color: var(--text-secondary);">${h.category || 'General'}</span></td>
+                  <td style="font-family: var(--font-mono);">${h.goalMonthly || 30} Days</td>
+                  <td style="text-align: center;">
+                    <button class="btn btn-icon delete-habit-btn" data-id="${h.id}" title="Delete Habit" style="color: var(--accent-red);">
+                      🗑️
+                    </button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
       </div>
 
     </div>
@@ -136,6 +178,19 @@ function attachManagerEvents(container) {
 
       store.addHabit(title, icon, category, goal);
       renderManagerView(container);
+    });
+  }
+
+  // Sync Code Form
+  const syncForm = container.querySelector('#syncCodeForm');
+  if (syncForm) {
+    syncForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const code = container.querySelector('#syncCodeInput').value;
+      if (code) {
+        syncEngine.setSyncCode(code);
+        alert(`Device successfully paired with Sync Code: "${code}"! Phone and Laptop are now syncing in real-time.`);
+      }
     });
   }
 

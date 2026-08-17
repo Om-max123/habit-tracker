@@ -2,11 +2,20 @@
 <html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>MagicLoom - Dark Mode Multiview Habit Tracker & Discipline System</title>
   <meta name="description" content="A powerful dark-mode multiview habit tracker, weekly planner, and annual discipline dashboard matching MagicLoom spreadsheet system.">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✨</text></svg>">
   
+  <!-- PWA Manifest & iOS Tags -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#111827">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="MagicLoom">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✨</text></svg>">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✨</text></svg>">
+
   <!-- CSS Stylesheet -->
   <link rel="stylesheet" href="src/styles.css">
 </head>
@@ -38,8 +47,16 @@
       </button>
     </nav>
 
-    <!-- Header Actions -->
+    <!-- Header Actions (Sync & PWA Install) -->
     <div class="header-actions">
+      <div id="cloudSyncStatusBadge" class="stat-pill" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;" title="Cross-Device Cloud Sync Status">
+        <span>☁️</span> <span id="syncStatusText" style="color: var(--accent-green);">Synced</span>
+      </div>
+
+      <button class="btn btn-secondary" id="installPwaBtn" style="display: none; font-size: 0.78rem; padding: 0.35rem 0.7rem;">
+        📱 Install App
+      </button>
+
       <button class="btn btn-icon" id="themeToggleBtn" title="Toggle Dark/Light Mode">
         🌓
       </button>
@@ -53,5 +70,34 @@
 
   <!-- JavaScript Entry Point -->
   <script type="module" src="src/js/app.js"></script>
+
+  <!-- PWA Service Worker Registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(err => {
+          console.warn('SW registration skipped:', err);
+        });
+      });
+    }
+
+    // PWA Install Prompt Handler
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      const installBtn = document.getElementById('installPwaBtn');
+      if (installBtn) {
+        installBtn.style.display = 'inline-flex';
+        installBtn.addEventListener('click', () => {
+          installBtn.style.display = 'none';
+          deferredPrompt.prompt();
+          deferredPrompt.userChoice.then(() => {
+            deferredPrompt = null;
+          });
+        });
+      }
+    });
+  </script>
 </body>
 </html>

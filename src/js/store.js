@@ -1,12 +1,14 @@
 /**
  * MagicLoom Habit Tracker & Discipline System - Data Store
- * 10 Default Habits + Direct Add/Delete Freedom + Real-time Cross-View Sync.
+ * Single Source of Truth with Real-Time Cross-View Analytics & Lifetime Cloud Persistence.
  */
+
+import { syncEngine } from './syncEngine.js';
 
 const STORAGE_KEY = 'magicloom_lifetime_habit_data_v1';
 const SECONDARY_BACKUP_KEY = 'magicloom_backup_state_v1';
 
-// 10 Default Daily Habits (As requested)
+// 10 Default Daily Habits
 const DEFAULT_HABITS = [
   { id: 'h1', title: 'Wake up at 05:00', icon: '⏰', category: 'Routine', goalMonthly: 30 },
   { id: 'h2', title: 'No Reels', icon: '🚫', category: 'Discipline', goalMonthly: 30 },
@@ -44,7 +46,7 @@ function generateBlankMonthlyData(year, month) {
 class Store {
   constructor() {
     this.state = this.loadState();
-    setInterval(() => this.saveState(), 10000);
+    setInterval(() => this.saveState(false), 10000);
   }
 
   getDefaultState() {
@@ -91,13 +93,17 @@ class Store {
     return this.getDefaultState();
   }
 
-  saveState() {
+  saveState(pushToCloud = true) {
     try {
       const serialized = JSON.stringify(this.state);
       localStorage.setItem(STORAGE_KEY, serialized);
       localStorage.setItem(SECONDARY_BACKUP_KEY, serialized);
+
+      if (pushToCloud && typeof syncEngine !== 'undefined') {
+        syncEngine.pushToCloud();
+      }
     } catch (e) {
-      console.error('Failed to save state to localStorage:', e);
+      console.error('Failed to save state:', e);
     }
   }
 
@@ -140,7 +146,7 @@ class Store {
     const habits = this.state.habits;
 
     const today = new Date();
-    const dayOfWeek = today.getDay(); // 0 = Sun, 1 = Mon...
+    const dayOfWeek = today.getDay();
     const distanceToMon = (dayOfWeek + 6) % 7;
     const mondayDateObj = new Date(today);
     mondayDateObj.setDate(today.getDate() - distanceToMon);
@@ -257,7 +263,6 @@ class Store {
     };
     this.state.habits.push(newHabit);
 
-    // Initialize check matrix for new habit across existing months
     Object.keys(this.state.monthlyData).forEach(key => {
       const data = this.state.monthlyData[key];
       if (data && data.checks) {
@@ -272,7 +277,6 @@ class Store {
   deleteHabit(habitId) {
     this.state.habits = this.state.habits.filter(h => h.id !== habitId);
     
-    // Remove habit checks
     Object.keys(this.state.monthlyData).forEach(key => {
       const data = this.state.monthlyData[key];
       if (data && data.checks && data.checks[habitId]) {
