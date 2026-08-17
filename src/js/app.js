@@ -18,7 +18,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const themeToggleBtn = document.getElementById('themeToggleBtn');
   const syncStatusText = document.getElementById('syncStatusText');
   const googleAuthContainer = document.getElementById('googleAuthContainer');
-  const gateGoogleLoginBtn = document.getElementById('gateGoogleLoginBtn');
+
+  const googleGateAuthForm = document.getElementById('googleGateAuthForm');
+  const googleEmailInput = document.getElementById('googleEmailInput');
   const gateLoginBtnText = document.getElementById('gateLoginBtnText');
 
   // Initialize theme
@@ -52,36 +54,36 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Handle Gate Sign-In Button Click
-  if (gateGoogleLoginBtn) {
-    gateGoogleLoginBtn.addEventListener('click', async () => {
-      if (gateLoginBtnText) gateLoginBtnText.textContent = 'Connecting to Google...';
+  // Handle Google Auth Form Submission
+  if (googleGateAuthForm) {
+    googleGateAuthForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = googleEmailInput ? googleEmailInput.value : '';
+      if (gateLoginBtnText) gateLoginBtnText.textContent = 'Authenticating...';
+
       try {
-        await syncEngine.loginWithGoogle();
+        await syncEngine.loginWithGoogleAccount(email);
       } catch (err) {
-        console.error('Login error:', err);
+        alert(err.message || 'Authentication error');
         if (gateLoginBtnText) gateLoginBtnText.textContent = 'Sign in with Google';
       }
     });
   }
 
-  // Google Login & Logout UI state updater
+  // Update Auth Gate & App Header UI State based on active Google user
   function updateAuthViewState(user) {
     if (user) {
-      // User is logged in: Hide Gate, Show App UI
+      // User is authenticated: Hide Gate, Show App UI
       if (authGateOverlay) authGateOverlay.style.display = 'none';
       if (mainAppHeader) mainAppHeader.style.display = 'flex';
       if (appContainer) appContainer.style.display = 'block';
 
-      // Update Header Auth Profile
+      // Render User Profile Badge in Header Bar
       if (googleAuthContainer) {
-        const userPhoto = user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || user.email || 'User')}&background=10b981&color=fff`;
-        const userName = user.displayName || user.email.split('@')[0];
-
         googleAuthContainer.innerHTML = `
           <div class="stat-pill" style="padding: 0.25rem 0.5rem; gap: 0.4rem; background: var(--bg-card); border-color: var(--accent-green);" title="Logged in as ${user.email}">
-            <img src="${userPhoto}" style="width: 20px; height: 20px; border-radius: 50%; object-fit: cover;" alt="Avatar">
-            <span style="font-size: 0.78rem; font-weight: 600; color: var(--text-primary); max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${userName}</span>
+            <img src="${user.photoURL}" style="width: 20px; height: 20px; border-radius: 50%; object-fit: cover;" alt="Avatar">
+            <span style="font-size: 0.78rem; font-weight: 600; color: var(--text-primary); max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${user.email}</span>
           </div>
           <button class="btn btn-secondary" id="googleLogoutBtn" style="font-size: 0.72rem; padding: 0.3rem 0.5rem; color: var(--text-muted);" title="Sign Out">
             Sign Out
@@ -97,7 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // Render active view
       switchTab(store.state.activeTab || 'monthly');
     } else {
-      // User is logged out: Show Gate Overlay, Hide App UI
+      // User is signed out: Show Full-Screen Gate Overlay, Hide App UI
       if (authGateOverlay) authGateOverlay.style.display = 'flex';
       if (mainAppHeader) mainAppHeader.style.display = 'none';
       if (appContainer) appContainer.style.display = 'none';
@@ -106,12 +108,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Handle Google Auth state changes
+  // Listen for Google Auth state changes
   window.addEventListener('magicloom-auth-changed', (e) => {
     updateAuthViewState(e.detail);
   });
 
-  // Check initial user status from SyncEngine
+  // Check initial user status on app launch
   updateAuthViewState(syncEngine.getUser());
 
   // Listen for Cloud Sync status changes
@@ -130,7 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Listen for remote cloud updates pushed over WebSocket from phone/laptop
+  // Listen for remote cloud updates pushed from phone/laptop
   window.addEventListener('magicloom-cloud-synced', () => {
     if (syncEngine.getUser()) {
       switchTab(store.state.activeTab || 'monthly');
