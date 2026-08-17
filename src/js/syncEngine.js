@@ -1,16 +1,20 @@
 /**
  * MagicLoom Real-Time Cross-Device Cloud Sync Engine
- * Near-instant Real-Time Synchronization between Phone & Laptop.
+ * True Real-Time WebSocket Synchronization via Google Auth & Firebase Realtime DB.
  */
 
 import { store } from './store.js';
+import { 
+  loginWithGoogle, 
+  logoutUser, 
+  subscribeAuthState, 
+  subscribeToUserHabits, 
+  pushUserHabitsToCloud 
+} from './firebase.js';
 
 const SYNC_CODE_KEY = 'magicloom_personal_sync_code';
 const DEFAULT_SYNC_CODE = 'Om-max123-habits';
-
-// Dual High-Availability CORS-enabled Cloud Storage endpoints for cross-device pairing
-const ENDPOINT_PRIMARY = 'https://kvdb.io/7zR1n8x2FqL9mP3k5Y6w';
-const ENDPOINT_FALLBACK = 'https://api.counterapi.dev/v1/magicloom';
+const PUBLIC_SYNC_STORAGE = 'https://kvdb.io/7zR1n8x2FqL9mP3k5Y6w';
 
 class SyncEngine {
   constructor() {
@@ -18,9 +22,11 @@ class SyncEngine {
     this.status = 'idle'; // 'idle', 'syncing', 'synced', 'error'
     this.lastRemoteUpdate = 0;
     this.onSyncCallbacks = [];
+    this.currentUser = null;
+    this.firebaseUnsubscribe = null;
     this.isPushing = false;
 
-    // Cross-tab broadcast channel for instant local window sync
+    // Cross-tab broadcast channel for zero-latency local window sync
     if ('BroadcastChannel' in window) {
       this.broadcast = new BroadcastChannel('magicloom_tab_sync');
       this.broadcast.onmessage = (e) => {
@@ -31,16 +37,44 @@ class SyncEngine {
       };
     }
 
-    // Fast polling every 1.5 seconds for instant cross-device updates (phone <-> laptop)
-    setInterval(() => this.pullFromCloud(), 1500);
-
-    // Sync immediately when waking device or unlocking phone
-    document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) {
-        this.pullFromCloud();
+    // Subscribe to Google Auth State Changes
+    subscribeAuthState((user) => {
+      this.currentUser = user;
+      
+      // Clean up previous subscription
+      if (this.firebaseUnsubscribe) {
+        this.firebaseUnsubscribe();
+        this.firebaseUnsubscribe = null;
       }
+
+      if (user) {
+        this.notifyStatus('synced');
+        
+        // Connect TRUE WebSocket Real-Time Listener bound to Google User ID
+        this.firebaseUnsubscribe = subscribeToUserHabits(user.uid, (remoteData) => {
+          if (remoteData && remoteData.state && remoteData.lastUpdated > (this.lastRemoteUpdate || 0)) {
+            this.lastRemoteUpdate = remoteData.lastUpdated;
+            this.applyRemoteState(remoteData.state);
+          }
+        });
+
+        // Initial push of current state to ensure cloud has latest data
+        this.pushToCloud();
+      } else {
+        // Fallback polling for unauthenticated users
+        this.startFallbackPolling();
+      }
+
+      window.dispatchEvent(new CustomEvent('magicloom-auth-changed', { detail: user }));
     });
-    window.addEventListener('focus', () => this.pullFromCloud());
+  }
+
+  startFallbackPolling() {
+    if (!this.pollInterval) {
+      this.pollInterval = setInterval(() => {
+        if (!this.currentUser) this.pullFromCloud();
+      }, 1500);
+    }
   }
 
   loadSyncCode() {
@@ -68,6 +102,18 @@ class SyncEngine {
     this.onSyncCallbacks.forEach(cb => cb(status));
   }
 
+  async loginWithGoogle() {
+    return await loginWithGoogle();
+  }
+
+  async logout() {
+    return await logoutUser();
+  }
+
+  getUser() {
+    return this.currentUser;
+  }
+
   applyRemoteState(newState) {
     const currentActiveTab = store.state.activeTab;
     store.state = { ...store.getDefaultState(), ...newState, activeTab: currentActiveTab };
@@ -75,11 +121,11 @@ class SyncEngine {
 
     this.notifyStatus('synced');
 
-    // Custom event to trigger UI re-render preserving scroll position
+    // Trigger UI re-render preserving exact scroll position
     window.dispatchEvent(new CustomEvent('magicloom-cloud-synced'));
   }
 
-  // Push local state to cloud instantly on mutation
+  // Push local state to cloud (Firebase WebSocket push if logged in)
   async pushToCloud() {
     if (this.isPushing) return;
     this.isPushing = true;
@@ -92,23 +138,31 @@ class SyncEngine {
       state: store.state
     };
 
-    // Broadcast tab-to-tab instantly
+    // Local tab broadcast
     if (this.broadcast) {
       this.broadcast.postMessage(payload);
     }
 
     try {
-      const res = await fetch(`${ENDPOINT_PRIMARY}/${encodeURIComponent(this.syncCode)}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (res.ok) {
+      if (this.currentUser) {
+        // True Real-Time Push to Firebase Realtime Database
+        await pushUserHabitsToCloud(this.currentUser.uid, store.state);
         this.lastRemoteUpdate = timestamp;
         this.notifyStatus('synced');
       } else {
-        this.notifyStatus('error');
+        // Fallback HTTP REST push
+        const res = await fetch(`${PUBLIC_SYNC_STORAGE}/${encodeURIComponent(this.syncCode)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+          this.lastRemoteUpdate = timestamp;
+          this.notifyStatus('synced');
+        } else {
+          this.notifyStatus('error');
+        }
       }
     } catch (e) {
       console.warn('Cloud sync push offline queueing:', e);
@@ -118,12 +172,11 @@ class SyncEngine {
     }
   }
 
-  // Pull remote state from cloud
   async pullFromCloud() {
-    if (this.isPushing) return;
+    if (this.isPushing || this.currentUser) return;
 
     try {
-      const res = await fetch(`${ENDPOINT_PRIMARY}/${encodeURIComponent(this.syncCode)}`, {
+      const res = await fetch(`${PUBLIC_SYNC_STORAGE}/${encodeURIComponent(this.syncCode)}`, {
         cache: 'no-store'
       });
       if (!res.ok) return;
@@ -134,7 +187,7 @@ class SyncEngine {
         this.applyRemoteState(data.state);
       }
     } catch (e) {
-      // Quietly ignore network drops so offline work is seamless
+      // Quietly handle offline drops
     }
   }
 }
