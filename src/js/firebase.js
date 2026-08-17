@@ -1,6 +1,6 @@
 /**
  * Firebase Initialization & Google Authentication Module
- * True Real-Time WebSocket Cloud Synchronization across Laptop & Phone.
+ * Lifetime Auth Session Persistence & OAuth Redirect Handler.
  */
 
 import { initializeApp } from 'firebase/app';
@@ -9,8 +9,11 @@ import {
   GoogleAuthProvider, 
   signInWithPopup, 
   signInWithRedirect, 
+  getRedirectResult,
   signOut as firebaseSignOut, 
-  onAuthStateChanged 
+  onAuthStateChanged,
+  setPersistence,
+  browserLocalPersistence
 } from 'firebase/auth';
 import { 
   getDatabase, 
@@ -20,7 +23,7 @@ import {
   off 
 } from 'firebase/database';
 
-// Dedicated Firebase App Configuration for Realtime WebSockets & Google Auth
+// Firebase Project Configuration
 const firebaseConfig = {
   apiKey: "AIzaSyD-MagicLoomHabitTrackerKey2026",
   authDomain: "magicloom-habits.firebaseapp.com",
@@ -35,26 +38,38 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const database = getDatabase(app);
+
+// Enforce lifetime LocalStorage session persistence (like real-world apps)
+setPersistence(auth, browserLocalPersistence).catch(err => {
+  console.warn('Firebase auth persistence setup notice:', err);
+});
+
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
+// Check for pending redirect result on boot
+getRedirectResult(auth).then(result => {
+  if (result && result.user) {
+    console.log('Google Sign-In redirect successful:', result.user.email);
+  }
+}).catch(err => {
+  console.warn('Google Auth redirect result notice:', err);
+});
+
 /**
- * Trigger Google Sign-In via Popup (or Redirect fallback on mobile)
+ * Trigger Google Sign-In via Popup with instant Redirect fallback
  */
 export async function loginWithGoogle() {
   try {
     const result = await signInWithPopup(auth, googleProvider);
     return result.user;
   } catch (error) {
-    if (error.code === 'auth/popup-blocked' || error.code === 'auth/popup-closed-by-user') {
+    console.warn('Popup login notice, switching to Google Redirect:', error);
+    try {
       await signInWithRedirect(auth, googleProvider);
-    } else {
-      console.warn('Google auth popup error, falling back to redirect:', error);
-      try {
-        await signInWithRedirect(auth, googleProvider);
-      } catch (err) {
-        console.error('Google Sign-In failed:', err);
-      }
+    } catch (redirectErr) {
+      console.error('Google Sign-In failed:', redirectErr);
+      alert('Sign-In Error: Please allow popups or redirects in your browser.');
     }
   }
 }
@@ -84,7 +99,6 @@ export function subscribeToUserHabits(userId, onDataReceived) {
   if (!userId) return () => {};
   const userHabitsRef = ref(database, `users/${userId}/habitTracker`);
 
-  // True Real-Time WebSocket Push Listener from Firebase
   onValue(userHabitsRef, (snapshot) => {
     if (snapshot.exists()) {
       const data = snapshot.val();

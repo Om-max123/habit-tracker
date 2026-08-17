@@ -21,8 +21,32 @@
 </head>
 <body>
 
-  <!-- Top Application Header -->
-  <header class="app-header">
+  <!-- Full-Screen Google Sign-In Gate Overlay (Shown when signed out) -->
+  <div id="authGateOverlay" class="auth-gate-overlay">
+    <div class="auth-gate-card">
+      <div class="auth-brand-logo">✨</div>
+      <h1 class="auth-brand-title">MAGICLOOM</h1>
+      <p class="auth-brand-subtitle">Discipline Tracker & Multiview System</p>
+      
+      <p class="auth-description">
+        Sign in with your Google account to access your habits, trackers, and instant real-time synchronization between your phone and laptop.
+      </p>
+
+      <button id="gateGoogleLoginBtn" class="btn btn-google-gate">
+        <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
+        <span id="gateLoginBtnText">Sign in with Google</span>
+      </button>
+
+      <div class="auth-features-list">
+        <div class="auth-feature-item">🔒 <span>Session Preserved Forever</span></div>
+        <div class="auth-feature-item">⚡️ <span>Real-Time Phone & Laptop Sync</span></div>
+        <div class="auth-feature-item">📊 <span>Monthly, Weekly & Yearly Dashboard</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Top Application Header (Shown when signed in) -->
+  <header class="app-header" id="mainAppHeader" style="display: none;">
     <div class="brand-container">
       <div class="brand-logo">✨</div>
       <div>
@@ -49,16 +73,12 @@
 
     <!-- Header Actions (Google Auth, Cloud Sync & PWA Install) -->
     <div class="header-actions">
-      <!-- Google Auth Container -->
       <div id="googleAuthContainer" style="display: flex; align-items: center; gap: 0.5rem;">
-        <button class="btn btn-secondary" id="googleLoginBtn" style="font-size: 0.78rem; padding: 0.35rem 0.7rem; border-color: #4285F4; color: #ffffff; background: rgba(66, 133, 244, 0.15);">
-          <svg width="14" height="14" viewBox="0 0 24 24" style="margin-right: 4px;"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
-          Sign in with Google
-        </button>
+        <!-- Populated dynamically when user logs in -->
       </div>
 
       <div id="cloudSyncStatusBadge" class="stat-pill" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;" title="Real-Time WebSocket Cloud Sync">
-        <span>☁️</span> <span id="syncStatusText" style="color: var(--accent-green);">Synced</span>
+        <span>☁️</span> <span id="syncStatusText" style="color: var(--accent-green);">Live Sync</span>
       </div>
 
       <button class="btn btn-secondary" id="installPwaBtn" style="display: none; font-size: 0.78rem; padding: 0.35rem 0.7rem;">
@@ -71,8 +91,8 @@
     </div>
   </header>
 
-  <!-- Main View Container -->
-  <main class="main-content" id="appViewContainer">
+  <!-- Main View Container (Shown when signed in) -->
+  <main class="main-content" id="appViewContainer" style="display: none;">
     <!-- View content dynamically rendered by ES Modules JS -->
   </main>
 
