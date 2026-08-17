@@ -1,6 +1,6 @@
 /**
  * MagicLoom Habit Tracker - Monthly Grid & Analysis Component
- * Interactive Range Sliders + Inline Add/Delete Habits + Slidebar Controls
+ * Preserves exact mobile scrollLeft position on checkbox clicks & sync updates.
  */
 
 import { store } from './store.js';
@@ -16,6 +16,10 @@ const MOOD_EMOJIS = { 0: '—', 1: '😫', 2: '🙁', 3: '😐', 4: '🙂', 5: '
 const MOTIVATION_EMOJIS = { 0: '—', 1: '🪫', 2: '💤', 3: '🔋', 4: '🏃', 5: '⚡️', 6: '💪', 7: '🔥', 8: '🚀', 9: '💥', 10: '👑' };
 
 export function renderMonthlyView(container) {
+  // Capture current horizontal scroll position if container already exists
+  const existingScrollContainer = container.querySelector('#monthlyGridScrollContainer');
+  const savedScrollLeft = existingScrollContainer ? existingScrollContainer.scrollLeft : null;
+
   const state = store.state;
   const currentYear = state.currentYear;
   const currentMonth = state.currentMonth;
@@ -265,6 +269,12 @@ export function renderMonthlyView(container) {
     </div>
   `;
 
+  // Restore horizontal scroll position so the grid doesn't reset to Day 1
+  const newScrollContainer = container.querySelector('#monthlyGridScrollContainer');
+  if (newScrollContainer && savedScrollLeft !== null) {
+    newScrollContainer.scrollLeft = savedScrollLeft;
+  }
+
   attachMonthlyViewEvents(container, todayDay);
 }
 
@@ -301,18 +311,13 @@ function renderAreaChartSVG(dailyStats) {
         </linearGradient>
       </defs>
 
-      <!-- Grid lines -->
       <line x1="${padding}" y1="${padding}" x2="${svgWidth - padding}" y2="${padding}" stroke="var(--border-subtle)" stroke-dasharray="4" />
       <line x1="${padding}" y1="${padding + chartHeight / 2}" x2="${svgWidth - padding}" y2="${padding + chartHeight / 2}" stroke="var(--border-subtle)" stroke-dasharray="4" />
       <line x1="${padding}" y1="${svgHeight - padding}" x2="${svgWidth - padding}" y2="${svgHeight - padding}" stroke="var(--border-color)" />
 
-      <!-- Area Fill -->
       <path d="${areaD}" fill="url(#areaGradient)" />
-
-      <!-- Smooth Line -->
       <path d="${pathD}" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" />
 
-      <!-- Data Dots -->
       ${points.map(p => `
         <circle cx="${p.x}" cy="${p.y}" r="4" fill="#10b981" stroke="#0a0e1a" stroke-width="2">
           <title>Day ${p.day}: ${p.pct}%</title>
@@ -341,7 +346,7 @@ function attachMonthlyViewEvents(container, todayDay) {
       const scrollContainer = container.querySelector('#monthlyGridScrollContainer');
       if (todayCol && scrollContainer) {
         scrollContainer.scrollTo({
-          left: todayCol.offsetLeft - 240,
+          left: todayCol.offsetLeft - 200,
           behavior: 'smooth'
         });
       }
@@ -383,18 +388,27 @@ function attachMonthlyViewEvents(container, todayDay) {
     });
   });
 
-  // Checkbox toggle clicks
+  // Checkbox toggle clicks - Targeted update preserving scroll position
   const checkboxCells = container.querySelectorAll('.cell-checkbox');
   checkboxCells.forEach(cell => {
     cell.addEventListener('click', () => {
       const habitId = cell.getAttribute('data-habit-id');
       const day = parseInt(cell.getAttribute('data-day'), 10);
+      
+      // Preserve scroll position
+      const scrollContainer = container.querySelector('#monthlyGridScrollContainer');
+      const currentScroll = scrollContainer ? scrollContainer.scrollLeft : 0;
+
       store.toggleHabitCheck(habitId, day);
       renderMonthlyView(container);
+
+      // Restore scroll position precisely
+      const newContainer = container.querySelector('#monthlyGridScrollContainer');
+      if (newContainer) newContainer.scrollLeft = currentScroll;
     });
   });
 
-  // Range Slider Input Handlers (Mood & Motivation)
+  // Range Slider Input Handlers
   const rangeSliders = container.querySelectorAll('.rating-range-slider');
   rangeSliders.forEach(slider => {
     slider.addEventListener('input', (e) => {
@@ -414,7 +428,15 @@ function attachMonthlyViewEvents(container, todayDay) {
     slider.addEventListener('change', (e) => {
       const type = slider.getAttribute('data-type');
       const day = parseInt(slider.getAttribute('data-day'), 10);
+      
+      const scrollContainer = container.querySelector('#monthlyGridScrollContainer');
+      const currentScroll = scrollContainer ? scrollContainer.scrollLeft : 0;
+
       store.setRating(type, day, e.target.value);
+      renderMonthlyView(container);
+
+      const newContainer = container.querySelector('#monthlyGridScrollContainer');
+      if (newContainer) newContainer.scrollLeft = currentScroll;
     });
   });
 }
