@@ -1,0 +1,23 @@
+{
+  "name": "magicloom-habit-tracker",
+  "version": "1.0.0",
+  "description": "MagicLoom Dark Mode Multiview Habit Tracker & Discipline System",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^5.1.0"
+  },
+  "keywords": [
+    "habit-tracker",
+    "magicloom",
+    "discipline",
+    "planner",
+    "vercel"
+  ],
+  "author": "",
+  "license": "MIT"
+}
